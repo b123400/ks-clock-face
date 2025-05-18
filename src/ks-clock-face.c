@@ -6,6 +6,15 @@
 #define ANIMATION_DURATION 500
 #define ANIMATION_DELAY 600
 
+// all in seconds
+#define MIN_CYCLE_LENGTH 600
+#define MAX_CYCLE_LENGTH 3600
+#define MAX_CYCLE_OFFSET 600
+
+static int cycle_length;
+static time_t cycle_started;
+static int max_shift;
+
 typedef struct {
   uint8_t hours;
   uint8_t minutes;
@@ -47,7 +56,23 @@ static void prv_animate(int duration, int delay, AnimationImplementation *implem
 
 /************************************ UI **************************************/
 
-static void prv_tick_handler(struct tm *tick_time, TimeUnits changed) {
+static void prv_tick_handler(struct tm *_tick_time, TimeUnits changed) {
+  time_t now = time(NULL);
+
+  int time_passed = now - cycle_started;
+  double percentage_passed = time_passed / (double)cycle_length;
+
+  if (percentage_passed >= 1) {
+    percentage_passed = 0;
+    cycle_length = MIN_CYCLE_LENGTH + (rand() % (MAX_CYCLE_LENGTH - MIN_CYCLE_LENGTH));
+    cycle_started = now;
+    max_shift = rand() % MAX_CYCLE_OFFSET;
+  }
+  int offset = sin_lookup(TRIG_MAX_ANGLE * time_passed / cycle_length) * max_shift / TRIG_MAX_RATIO;
+  now += offset;
+
+  struct tm *tick_time = localtime(&now);
+
   // Store time
   s_last_time.hours = tick_time->tm_hour;
   s_last_time.hours -= (s_last_time.hours > 12) ? 12 : 0;
@@ -208,6 +233,11 @@ static void prv_window_unload(Window *window) {
 
 static void prv_init() {
   srand(time(NULL));
+
+  time_t now = time(NULL);
+  cycle_length = MIN_CYCLE_LENGTH + (rand() % (MAX_CYCLE_LENGTH - MIN_CYCLE_LENGTH));
+  cycle_started = now - (rand() % cycle_length);
+  max_shift = rand() % MAX_CYCLE_OFFSET;
 
   time_t t = time(NULL);
   struct tm *time_now = localtime(&t);
